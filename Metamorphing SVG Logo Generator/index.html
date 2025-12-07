@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metamorphing SVG Logo Generator & Animator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            overflow: hidden;
+        }
+
+        .container {
+            width: 95vw;
+            height: 95vh;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+        }
+
+        h1 {
+            color: #fff;
+            text-align: center;
+            font-size: 24px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            margin: 0;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 15px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .builder-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        svg {
+            max-width: 100%;
+            max-height: 100%;
+            filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.4));
+        }
+
+        .controls-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .controls-title {
+            color: #00ffff;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        label {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 120px;
+        }
+
+        input[type="range"],
+        input[type="text"],
+        input[type="color"],
+        select {
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 12px;
+        }
+
+        input[type="range"] {
+            width: 100px;
+            cursor: pointer;
+        }
+
+        input[type="color"] {
+            width: 50px;
+            height: 32px;
+            cursor: pointer;
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        button {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #00ffaa 0%, #00cc88 100%);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 170, 0.4);
+        }
+
+        .shapes-list {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .shape-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+        }
+
+        .shape-item button {
+            padding: 4px 10px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        .visualizer-section {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+        }
+
+        .animation-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .info-text {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .builder-section {
+                min-height: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 18px;
+            }
+
+            .control-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Metamorphing SVG Logo Generator & Animator</h1>
+
+        <div class="main-content">
+            <div class="builder-section">
+                <div class="canvas-wrapper" id="canvasWrapper">
+                    <svg id="logoSvg" width="400" height="300" viewBox="0 0 400 300" style="background: rgba(0, 0, 0, 0.2); border-radius: 8px;">
+                        <defs>
+                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#00ffff;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#00ff88;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+
+                <div class="controls-section">
+                    <div class="controls-title">🔧 Logo Builder</div>
+                    
+                    <div class="control-group">
+                        <label for="shapeType">Shape:</label>
+                        <select id="shapeType">
+                            <option value="circle">Circle</option>
+                            <option value="rect">Rectangle</option>
+                            <option value="star">Star</option>
+                            <option value="triangle">Triangle</option>
+                        </select>
+                        
+                        <label for="posX" style="min-width: auto;">X:</label>
+                        <input type="range" id="posX" min="0" max="400" value="200" style="width: 80px;">
+                        
+                        <label for="posY" style="min-width: auto;">Y:</label>
+                        <input type="range" id="posY" min="0" max="300" value="150" style="width: 80px;">
+                        
+                        <label for="size" style="min-width: auto;">Size:</label>
+                        <input type="range" id="size" min="10" max="150" value="50" style="width: 80px;">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="shapeColor">Color:</label>
+                        <input type="color" id="shapeColor" value="#00ffaa">
+                        
+                        <button id="addShapeBtn">Add Shape</button>
+                        <button id="clearAllBtn">Clear All</button>
+                    </div>
+
+                    <div style="margin-top: 12px;">
+                        <div class="controls-title">Shapes</div>
+                        <div class="shapes-list" id="shapesList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="visualizer-section">
+                <div class="controls-title">✨ Animation Controls</div>
+                
+                <div class="control-group">
+                    <label for="animSpeed" style="min-width: auto;">Speed:</label>
+                    <input type="range" id="animSpeed" min="0.5" max="5" step="0.5" value="2" style="width: 100px;">
+                </div>
+
+                <div class="animation-controls">
+                    <button id="saveStateBtn">💾 Save State</button>
+                    <button id="animateBtn">▶️ Animate</button>
+                    <button id="downloadBtn">⬇️ Download SVG</button>
+                </div>
+
+                <div class="info-text">
+                    💡 Build a logo by adding shapes. Save multiple states to morph between them. Click "Animate" to watch smooth transitions!
+                </div>
+
+                <div id="statesDisplay" style="color: rgba(255, 255, 255, 0.7); font-size: 12px; margin-top: 10px;">
+                    States saved: <span id="stateCount">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const svg = document.getElementById('logoSvg');
+        const shapeType = document.getElementById('shapeType');
+        const posX = document.getElementById('posX');
+        const posY = document.getElementById('posY');
+        const size = document.getElementById('size');
+        const shapeColor = document.getElementById('shapeColor');
+        const addShapeBtn = document.getElementById('addShapeBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const saveStateBtn = document.getElementById('saveStateBtn');
+        const animateBtn = document.getElementById('animateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const shapesList = document.getElementById('shapesList');
+        const stateCount = document.getElementById('stateCount');
+        const animSpeed = document.getElementById('animSpeed');
+
+        let shapes = [];
+        let savedStates = [];
+        let animationId = null;
+
+        function createShape(type, x, y, size, color) {
+            const id = 'shape_' + Date.now();
+            let element;
+
+            if (type === 'circle') {
+                element = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                element.setAttribute('cx', x);
+                element.setAttribute('cy', y);
+                element.setAttribute('r', size / 2);
+            } else if (type === 'rect') {
+                element = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                element.setAttribute('x', x - size / 2);
+                element.setAttribute('y', y - size / 2);
+                element.setAttribute('width', size);
+                element.setAttribute('height', size);
+            } else if (type === 'star') {
+                const points = createStarPoints(x, y, size / 2, size / 4, 5);
+                element = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                element.setAttribute('points', points);
+            } else if (type === 'triangle') {
+                const cx = x, cy = y, r = size / 2;
+                const points = `${cx},${cy - r} ${cx + r},${cy + r} ${cx - r},${cy + r}`;
+                element = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                element.setAttribute('points', points);
+            }
+
+            element.setAttribute('id', id);
+            element.setAttribute('fill', color);
+            element.setAttribute('stroke', color);
+            element.setAttribute('stroke-width', '2');
+            element.style.cursor = 'pointer';
+            element.style.transition = 'all 0.3s ease';
+
+            svg.appendChild(element);
+
+            shapes.push({ id, type, x, y, size, color, element });
+            updateShapesList();
+            return id;
+        }
+
+        function createStarPoints(cx, cy, outerRadius, innerRadius, points) {
+            let pointsStr = '';
+            for (let i = 0; i < points * 2; i++) {
+                const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                const angle = (i * Math.PI) / points;
+                const px = cx + radius * Math.sin(angle);
+                const py = cy - radius * Math.cos(angle);
+                pointsStr += px + ',' + py + ' ';
+            }
+            return pointsStr;
+        }
+
+        function updateShapesList() {
+            shapesList.innerHTML = '';
+            shapes.forEach((shape, index) => {
+                const div = document.createElement('div');
+                div.className = 'shape-item';
+                div.innerHTML = `
+                    <span>${shape.type} #${index + 1}</span>
+                    <button onclick="deleteShape('${shape.id}')">Delete</button>
+                `;
+                shapesList.appendChild(div);
+            });
+        }
+
+        function deleteShape(id) {
+            shapes = shapes.filter(s => s.id !== id);
+            const element = document.getElementById(id);
+            if (element) element.remove();
+            updateShapesList();
+        }
+
+        function saveState() {
+            const svgCopy = svg.cloneNode(true);
+            savedStates.push({
+                timestamp: Date.now(),
+                svg: svgCopy,
+                shapes: JSON.parse(JSON.stringify(shapes.map(s => ({
+                    type: s.type,
+                    x: s.x,
+                    y: s.y,
+                    size: s.size,
+                    color: s.color
+                }))))
+            });
+            stateCount.textContent = savedStates.length;
+        }
+
+        function animateMorph() {
+            if (savedStates.length < 2) {
+                alert('Save at least 2 states to animate!');
+                return;
+            }
+
+            if (animationId) cancelAnimationFrame(animationId);
+
+            let currentState = 0;
+            let progress = 0;
+            const speed = parseFloat(animSpeed.value) / 100;
+
+            function animate() {
+                progress += speed;
+
+                if (progress >= 1) {
+                    currentState = (currentState + 1) % savedStates.length;
+                    progress = 0;
+                }
+
+                const state1 = savedStates[currentState];
+                const state2 = savedStates[(currentState + 1) % savedStates.length];
+
+                svg.innerHTML = '';
+
+                state1.shapes.forEach((shape1, index) => {
+                    const shape2 = state2.shapes[index % state2.shapes.length];
+
+                    const morphX = shape1.x + (shape2.x - shape1.x) * progress;
+                    const morphY = shape1.y + (shape2.y - shape1.y) * progress;
+                    const morphSize = shape1.size + (shape2.size - shape1.size) * progress;
+                    const morphType = shape1.type;
+
+                    const morphColor1 = hexToRgb(shape1.color);
+                    const morphColor2 = hexToRgb(shape2.color);
+                    const morphColor = `rgb(${Math.round(morphColor1.r + (morphColor2.r - morphColor1.r) * progress)}, ${Math.round(morphColor1.g + (morphColor2.g - morphColor1.g) * progress)}, ${Math.round(morphColor1.b + (morphColor2.b - morphColor1.b) * progress)})`;
+
+                    if (morphType === 'circle') {
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', morphX);
+                        circle.setAttribute('cy', morphY);
+                        circle.setAttribute('r', morphSize / 2);
+                        circle.setAttribute('fill', morphColor);
+                        svg.appendChild(circle);
+                    } else if (morphType === 'rect') {
+                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        rect.setAttribute('x', morphX - morphSize / 2);
+                        rect.setAttribute('y', morphY - morphSize / 2);
+                        rect.setAttribute('width', morphSize);
+                        rect.setAttribute('height', morphSize);
+                        rect.setAttribute('fill', morphColor);
+                        svg.appendChild(rect);
+                    }
+                });
+
+                animationId = requestAnimationFrame(animate);
+            }
+
+            animate();
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 0, g: 255, b: 170 };
+        }
+
+        function downloadSVG() {
+            const svgData = svg.outerHTML;
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'logo.svg';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        window.deleteShape = deleteShape;
+
+        addShapeBtn.addEventListener('click', () => {
+            createShape(
+                shapeType.value,
+                parseInt(posX.value),
+                parseInt(posY.value),
+                parseInt(size.value),
+                shapeColor.value
+            );
+        });
+
+        clearAllBtn.addEventListener('click', () => {
+            shapes.forEach(s => s.element.remove());
+            shapes = [];
+            updateShapesList();
+        });
+
+        saveStateBtn.addEventListener('click', saveState);
+        animateBtn.addEventListener('click', animateMorph);
+        downloadBtn.addEventListener('click', downloadSVG);
+    </script>
+</body>
+</html>

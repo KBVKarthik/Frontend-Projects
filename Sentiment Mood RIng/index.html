@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Sentiment Mood Ring</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            overflow: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            padding: 40px;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h1 {
+            color: white;
+            font-size: 28px;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+        }
+
+        .ring-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mood-ring {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 0deg,
+                hsl(0, 100%, 50%),
+                hsl(60, 100%, 50%),
+                hsl(120, 100%, 50%),
+                hsl(180, 100%, 50%),
+                hsl(240, 100%, 50%),
+                hsl(300, 100%, 50%),
+                hsl(0, 100%, 50%)
+            );
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.4),
+                        inset 0 0 30px rgba(0, 0, 0, 0.2);
+            animation: rotate 4s linear infinite;
+            border: 8px solid rgba(255, 255, 255, 0.3);
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .mood-ring.sentiment-active {
+            animation: none;
+            border: 8px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 50px currentColor,
+                        inset 0 0 30px rgba(0, 0, 0, 0.2);
+            background-color: hsl(var(--sentiment-hue), 100%, 50%);
+            transition: background-color 0.8s ease, box-shadow 0.8s ease;
+        }
+
+        .inner-glow {
+            position: absolute;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .sentiment-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .input-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 16px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .sentiment-display {
+            width: 100%;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .sentiment-score {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .sentiment-keywords {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 8px;
+        }
+
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        @keyframes rippleEffect {
+            0% {
+                width: 10px;
+                height: 10px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                opacity: 1;
+            }
+            100% {
+                width: 150px;
+                height: 150px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                opacity: 0;
+            }
+        }
+
+        .ripple.active {
+            animation: rippleEffect 0.6s ease-out;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌈 Sentiment Mood Ring</h1>
+        
+        <div class="ring-container">
+            <div class="mood-ring" id="moodRing">
+                <div class="inner-glow"></div>
+                <div class="sentiment-label" id="sentimentLabel">Neutral</div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <input 
+                type="text" 
+                id="sentimentInput" 
+                placeholder="Type your thoughts... How are you feeling?" 
+                autocomplete="off"
+            >
+        </div>
+
+        <div class="sentiment-display">
+            <div>Current Sentiment</div>
+            <div class="sentiment-score" id="sentimentScore">Neutral (0)</div>
+            <div class="sentiment-keywords" id="sentimentKeywords">Start typing to analyze...</div>
+        </div>
+
+        <div class="info-text">
+            💡 The ring changes color based on the emotional tone of your words.<br>
+            Red = Angry • Orange = Negative • Yellow = Mixed • Green = Positive • Blue = Calm • Purple = Joy
+        </div>
+    </div>
+
+    <script>
+        // Comprehensive sentiment keyword database
+        const sentimentKeywords = {
+            // Extreme positive (hue: 240-270, purple/blue-violet)
+            love: 5, amazing: 5, wonderful: 5, excellent: 5, fantastic: 5, 
+            brilliant: 5, outstanding: 5, incredible: 5, perfect: 5, awesome: 5,
+            beautiful: 4, great: 4, good: 4, happy: 4, joy: 4, excited: 4,
+            loved: 4, wonderful: 4, lovely: 4, nice: 3, glad: 3, pleased: 3,
+            
+            // Positive/Calm (hue: 120-180, green/cyan)
+            calm: 3, peaceful: 3, relaxed: 3, comfortable: 2, well: 2, fine: 2,
+            okay: 1, alright: 1, safe: 3, secure: 3, confident: 3, proud: 4,
+            
+            // Negative (hue: 0-60, red/orange/yellow)
+            hate: -5, terrible: -5, horrible: -5, awful: -5, worst: -5,
+            bad: -4, sad: -4, angry: -4, furious: -5, upset: -4, mad: -4,
+            annoyed: -3, frustrated: -3, disappointed: -3, worried: -3,
+            anxious: -3, scared: -4, fear: -4, pain: -4, hurt: -4, cry: -3,
+            poor: -2, wrong: -2, fail: -3, sick: -2, tired: -2, weak: -2,
+            
+            // Neutral/Mixed
+            okay: 0, maybe: 0, perhaps: 0, whatever: -1, meh: -1,
+        };
+
+        const moodRing = document.getElementById('moodRing');
+        const sentimentInput = document.getElementById('sentimentInput');
+        const sentimentLabel = document.getElementById('sentimentLabel');
+        const sentimentScore = document.getElementById('sentimentScore');
+        const sentimentKeywords = document.getElementById('sentimentKeywords');
+
+        function calculateSentiment(text) {
+            const words = text.toLowerCase()
+                .replace(/[^\w\s]/g, '')
+                .split(/\s+/)
+                .filter(w => w.length > 0);
+
+            let score = 0;
+            let foundKeywords = [];
+
+            words.forEach(word => {
+                if (sentimentKeywords[word]) {
+                    score += sentimentKeywords[word];
+                    foundKeywords.push(word);
+                }
+            });
+
+            return {
+                score: score,
+                normalized: Math.max(-5, Math.min(5, score)), // Clamp between -5 and 5
+                keywords: [...new Set(foundKeywords)]
+            };
+        }
+
+        function scoreToHue(score) {
+            // Map sentiment score to hue:
+            // -5 to -4: Red (0°)
+            // -3 to -2: Orange (30°)
+            // -1 to 0: Yellow (60°)
+            // 1 to 2: Lime/Green (120°)
+            // 3 to 4: Cyan (180°)
+            // 5+: Purple/Blue (240-270°)
+            
+            const hueMap = {
+                '-5': 0,
+                '-4': 15,
+                '-3': 30,
+                '-2': 45,
+                '-1': 60,
+                '0': 60,
+                '1': 120,
+                '2': 150,
+                '3': 180,
+                '4': 200,
+                '5': 240,
+            };
+
+            return hueMap[score] || 60;
+        }
+
+        function getSentimentLabel(score) {
+            if (score >= 4) return '😍 Joyful';
+            if (score >= 2) return '😊 Happy';
+            if (score >= 1) return '🙂 Positive';
+            if (score === 0) return '😐 Neutral';
+            if (score >= -2) return '😞 Sad';
+            if (score >= -4) return '😠 Angry';
+            return '🤬 Furious';
+        }
+
+        function createRipple() {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple active';
+            document.querySelector('.ring-container').appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        }
+
+        function updateMoodRing(text) {
+            if (text.trim() === '') {
+                moodRing.classList.remove('sentiment-active');
+                sentimentLabel.textContent = 'Neutral';
+                sentimentScore.textContent = 'Neutral (0)';
+                sentimentKeywords.textContent = 'Start typing to analyze...';
+                return;
+            }
+
+            const result = calculateSentiment(text);
+            const hue = scoreToHue(result.normalized);
+            const label = getSentimentLabel(result.normalized);
+
+            moodRing.classList.add('sentiment-active');
+            moodRing.style.setProperty('--sentiment-hue', hue);
+            sentimentLabel.textContent = label;
+
+            const scoreText = result.normalized > 0 ? `+${result.normalized}` : result.normalized;
+            sentimentScore.textContent = `${label} (${scoreText})`;
+
+            if (result.keywords.length > 0) {
+                sentimentKeywords.textContent = `Keywords: ${result.keywords.slice(0, 5).join(', ')}`;
+            } else {
+                sentimentKeywords.textContent = 'No sentiment keywords detected';
+            }
+
+            createRipple();
+        }
+
+        sentimentInput.addEventListener('input', (e) => {
+            updateMoodRing(e.target.value);
+        });
+
+        // Initial state
+        updateMoodRing('');
+    </script>
+</body>
+</html>

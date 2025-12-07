@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D ASCII Art Generative Canvas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            overflow: hidden;
+            color: #00ff00;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 30px;
+            width: 100%;
+            height: 100vh;
+        }
+
+        h1 {
+            color: #00ff88;
+            font-size: 24px;
+            text-shadow: 0 0 10px #00ff88;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 95vw;
+            height: 70vh;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff88;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0, 20, 40, 0.9);
+            border-radius: 10px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            width: 95vw;
+            max-width: 1200px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            color: #00ff88;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        input[type="range"] {
+            width: 120px;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #00ff88;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+
+        button:hover {
+            background: #00ff55;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        .info-text {
+            color: #00aa44;
+            font-size: 11px;
+            text-align: center;
+            line-height: 1.6;
+            max-width: 95vw;
+        }
+
+        @media (max-width: 768px) {
+            .canvas-wrapper {
+                height: 50vh;
+            }
+            
+            h1 {
+                font-size: 18px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            input[type="range"] {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>▓ 3D ASCII ART GENERATOR ▓</h1>
+        
+        <div class="canvas-wrapper">
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="speed">Speed:</label>
+                <input type="range" id="speed" min="0.5" max="3" step="0.1" value="1.5">
+            </div>
+            <div class="control-group">
+                <label for="density">Density:</label>
+                <input type="range" id="density" min="2" max="8" step="1" value="4">
+            </div>
+            <div class="control-group">
+                <label for="depth">Depth:</label>
+                <input type="range" id="depth" min="20" max="100" step="5" value="50">
+            </div>
+            <button id="reset">Reset Shape</button>
+            <button id="randomShape">Random Shape</button>
+        </div>
+
+        <div class="info-text">
+            💡 Move your mouse to rotate the 3D shape. Controls adjust speed, character density, and depth perception.
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // ASCII characters from darkest to lightest
+        const asciiChars = ['@', '#', 'S', '%', '?', '*', '+', ';', ':', ',', '.'];
+
+        // 3D point class
+        class Point3D {
+            constructor(x, y, z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            rotateX(angle) {
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+                const y = this.y * cos - this.z * sin;
+                const z = this.y * sin + this.z * cos;
+                this.y = y;
+                this.z = z;
+            }
+
+            rotateY(angle) {
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+                const x = this.x * cos + this.z * sin;
+                const z = -this.x * sin + this.z * cos;
+                this.x = x;
+                this.z = z;
+            }
+
+            rotateZ(angle) {
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+                const x = this.x * cos - this.y * sin;
+                const y = this.x * sin + this.y * cos;
+                this.x = x;
+                this.y = y;
+            }
+
+            project(scale) {
+                const distance = 500 + this.z;
+                const x = (this.x * scale * distance) / 200 + canvas.width / 2;
+                const y = (this.y * scale * distance) / 200 + canvas.height / 2;
+                const brightness = (this.z + 150) / 300;
+                return { x, y, brightness: Math.max(0, Math.min(1, brightness)) };
+            }
+        }
+
+        // Particle system for 3D shape
+        let particles = [];
+        let rotationX = 0;
+        let rotationY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+
+        // Create initial particles
+        function createParticles(shape = 'cube') {
+            particles = [];
+            const count = 300;
+
+            if (shape === 'cube') {
+                for (let i = 0; i < count; i++) {
+                    particles.push(new Point3D(
+                        (Math.random() - 0.5) * 200,
+                        (Math.random() - 0.5) * 200,
+                        (Math.random() - 0.5) * 200
+                    ));
+                }
+            } else if (shape === 'sphere') {
+                for (let i = 0; i < count; i++) {
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    const theta = 2 * Math.PI * Math.random();
+                    const radius = 100;
+                    particles.push(new Point3D(
+                        radius * Math.sin(phi) * Math.cos(theta),
+                        radius * Math.sin(phi) * Math.sin(theta),
+                        radius * Math.cos(phi)
+                    ));
+                }
+            } else if (shape === 'torus') {
+                for (let i = 0; i < count; i++) {
+                    const u = Math.random() * Math.PI * 2;
+                    const v = Math.random() * Math.PI * 2;
+                    const R = 100;
+                    const r = 30;
+                    particles.push(new Point3D(
+                        (R + r * Math.cos(v)) * Math.cos(u),
+                        (R + r * Math.cos(v)) * Math.sin(u),
+                        r * Math.sin(v)
+                    ));
+                }
+            }
+        }
+
+        // Get random shape
+        function getRandomShape() {
+            const shapes = ['cube', 'sphere', 'torus'];
+            return shapes[Math.floor(Math.random() * shapes.length)];
+        }
+
+        createParticles('cube');
+
+        // Mouse tracking
+        document.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            targetRotationY = (mouse.x - canvas.width / 2) * 0.005;
+            targetRotationX = (mouse.y - canvas.height / 2) * 0.005;
+        });
+
+        // Controls
+        document.getElementById('reset').addEventListener('click', () => {
+            createParticles('cube');
+        });
+
+        document.getElementById('randomShape').addEventListener('click', () => {
+            createParticles(getRandomShape());
+        });
+
+        const speedControl = document.getElementById('speed');
+        const densityControl = document.getElementById('density');
+        const depthControl = document.getElementById('depth');
+
+        let time = 0;
+
+        function animate() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Smooth rotation toward target
+            rotationX += (targetRotationX - rotationX) * 0.1;
+            rotationY += (targetRotationY - rotationY) * 0.1;
+
+            // Apply rotations
+            const speed = parseFloat(speedControl.value);
+            const depth = parseFloat(depthControl.value);
+            const density = parseInt(densityControl.value);
+
+            const rotatedParticles = particles.map(p => {
+                const np = new Point3D(p.x, p.y, p.z);
+                np.rotateX(rotationX + time * 0.003 * speed);
+                np.rotateY(rotationY + time * 0.002 * speed);
+                return np;
+            });
+
+            // Project and draw
+            const projected = rotatedParticles
+                .map(p => ({ ...p.project(depth), particle: p }))
+                .filter(p => p.x >= 0 && p.x <= canvas.width && p.y >= 0 && p.y <= canvas.height)
+                .sort((a, b) => a.particle.z - b.particle.z);
+
+            // Draw ASCII characters at intervals
+            for (let i = 0; i < projected.length; i += density) {
+                const p = projected[i];
+                const charIndex = Math.floor(p.brightness * (asciiChars.length - 1));
+                const char = asciiChars[charIndex];
+                
+                // Color based on brightness
+                const hue = (p.brightness * 120) + 120; // Green to cyan
+                ctx.fillStyle = `hsl(${hue}, 100%, ${50 + p.brightness * 30}%)`;
+                ctx.font = '12px Courier New';
+                ctx.fillText(char, p.x, p.y);
+            }
+
+            time++;
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

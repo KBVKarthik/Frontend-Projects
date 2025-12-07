@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Network Visualization Builder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            overflow: hidden;
+        }
+
+        .container {
+            width: 95vw;
+            height: 95vh;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+        }
+
+        h1 {
+            color: #00d4ff;
+            text-align: center;
+            font-size: 24px;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+            margin: 0;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            background: rgba(0, 20, 40, 0.6);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, rgba(0, 50, 80, 0.8) 0%, rgba(0, 20, 40, 0.95) 100%);
+            cursor: crosshair;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 15px;
+            background: rgba(0, 20, 40, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        button {
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #00ffff 0%, #00ccff 100%);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .info-text {
+            color: #00d4ff;
+            font-size: 11px;
+            text-align: center;
+            line-height: 1.5;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 18px;
+            }
+
+            button {
+                padding: 8px 12px;
+                font-size: 10px;
+            }
+
+            .info-text {
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Neural Network Visualization Builder</h1>
+        
+        <div class="canvas-wrapper">
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <button id="clearBtn">Clear All</button>
+            <button id="randomBtn">Random Network</button>
+            <span class="info-text" style="flex: 1;">
+                💡 Click to add neurons • Drag from node to node to connect • Drag nodes to move • Right-click to delete
+            </span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const clearBtn = document.getElementById('clearBtn');
+        const randomBtn = document.getElementById('randomBtn');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Node class
+        class Node {
+            constructor(x, y, id) {
+                this.x = x;
+                this.y = y;
+                this.id = id;
+                this.radius = 8;
+                this.vx = 0;
+                this.vy = 0;
+                this.connections = [];
+            }
+
+            draw(ctx, selected = false, hovering = false) {
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                gradient.addColorStop(0, hovering ? '#00ffff' : '#00d4ff');
+                gradient.addColorStop(1, '#0099cc');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (selected) {
+                    ctx.strokeStyle = '#ff00ff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else if (hovering) {
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+            }
+
+            contains(x, y) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                return Math.sqrt(dx * dx + dy * dy) <= this.radius + 5;
+            }
+        }
+
+        // Connection class
+        class Connection {
+            constructor(fromNode, toNode) {
+                this.fromNode = fromNode;
+                this.toNode = toNode;
+                this.particles = [];
+                for (let i = 0; i < 3; i++) {
+                    this.particles.push({ t: i / 3 });
+                }
+            }
+
+            draw(ctx) {
+                const x1 = this.fromNode.x;
+                const y1 = this.fromNode.y;
+                const x2 = this.toNode.x;
+                const y2 = this.toNode.y;
+
+                // Draw connection line
+                const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                gradient.addColorStop(0, 'rgba(0, 212, 255, 0.6)');
+                gradient.addColorStop(0.5, 'rgba(0, 255, 150, 0.8)');
+                gradient.addColorStop(1, 'rgba(0, 212, 255, 0.6)');
+
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.quadraticCurveTo(
+                    (x1 + x2) / 2 + (y2 - y1) * 0.2,
+                    (y1 + y2) / 2 + (x1 - x2) * 0.2,
+                    x2,
+                    y2
+                );
+                ctx.stroke();
+
+                // Animate particles along connection
+                this.particles.forEach(particle => {
+                    particle.t += 0.02;
+                    if (particle.t > 1) particle.t = 0;
+
+                    // Quadratic Bezier interpolation
+                    const t = particle.t;
+                    const mt = 1 - t;
+                    const cp1x = (x1 + x2) / 2 + (y2 - y1) * 0.2;
+                    const cp1y = (y1 + y2) / 2 + (x1 - x2) * 0.2;
+
+                    const px = mt * mt * x1 + 2 * mt * t * cp1x + t * t * x2;
+                    const py = mt * mt * y1 + 2 * mt * t * cp1y + t * t * y2;
+
+                    // Draw particle
+                    const hue = (t * 120 + 180) % 360;
+                    ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                    ctx.shadowBlur = 8;
+                });
+            }
+        }
+
+        // State management
+        let nodes = [];
+        let connections = [];
+        let selectedNode = null;
+        let hoveredNode = null;
+        let draggingNode = null;
+        let dragOffset = { x: 0, y: 0 };
+        let connectingFrom = null;
+        let nodeIdCounter = 0;
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (e.button === 0) { // Left click
+                // Check if clicking on existing node
+                let clickedNode = null;
+                for (let node of nodes) {
+                    if (node.contains(x, y)) {
+                        clickedNode = node;
+                        break;
+                    }
+                }
+
+                if (clickedNode) {
+                    if (connectingFrom) {
+                        if (connectingFrom !== clickedNode) {
+                            connections.push(new Connection(connectingFrom, clickedNode));
+                        }
+                        connectingFrom = null;
+                    } else if (e.ctrlKey || e.metaKey) {
+                        connectingFrom = clickedNode;
+                    } else {
+                        draggingNode = clickedNode;
+                        dragOffset.x = x - clickedNode.x;
+                        dragOffset.y = y - clickedNode.y;
+                    }
+                } else if (!connectingFrom) {
+                    // Create new node
+                    nodes.push(new Node(x, y, nodeIdCounter++));
+                }
+            } else if (e.button === 2) { // Right click
+                // Delete node
+                for (let i = nodes.length - 1; i >= 0; i--) {
+                    if (nodes[i].contains(x, y)) {
+                        nodes.splice(i, 1);
+                        connections = connections.filter(conn => 
+                            conn.fromNode !== nodes[i] && conn.toNode !== nodes[i]
+                        );
+                        break;
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            hoveredNode = null;
+            for (let node of nodes) {
+                if (node.contains(x, y)) {
+                    hoveredNode = node;
+                    break;
+                }
+            }
+
+            if (draggingNode) {
+                draggingNode.x = x - dragOffset.x;
+                draggingNode.y = y - dragOffset.y;
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggingNode = null;
+        });
+
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+
+        // Clear all
+        clearBtn.addEventListener('click', () => {
+            nodes = [];
+            connections = [];
+            connectingFrom = null;
+            draggingNode = null;
+        });
+
+        // Random network
+        randomBtn.addEventListener('click', () => {
+            nodes = [];
+            connections = [];
+            connectingFrom = null;
+
+            // Create 3 layers
+            const layers = [3, 5, 3];
+            const positions = [];
+
+            for (let layer = 0; layer < layers.length; layer++) {
+                const count = layers[layer];
+                const spacing = canvas.height / (count + 1);
+                const x = 100 + layer * 300;
+
+                for (let i = 0; i < count; i++) {
+                    const y = spacing * (i + 1);
+                    const node = new Node(x, y, nodeIdCounter++);
+                    nodes.push(node);
+                    positions.push({ layer, node });
+                }
+            }
+
+            // Connect layers
+            for (let i = 0; i < positions.length; i++) {
+                for (let j = i + 1; j < positions.length; j++) {
+                    if (positions[j].layer === positions[i].layer + 1) {
+                        if (Math.random() > 0.3) {
+                            connections.push(new Connection(positions[i].node, positions[j].node));
+                        }
+                    }
+                }
+            }
+        });
+
+        // Animation loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw connections first (background)
+            connections.forEach(conn => conn.draw(ctx));
+
+            // Draw nodes on top
+            nodes.forEach(node => {
+                node.draw(ctx, node === selectedNode, node === hoveredNode);
+            });
+
+            // Draw connecting line preview
+            if (connectingFrom) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseEvent = window.lastMouseEvent;
+                if (mouseEvent) {
+                    const x = mouseEvent.clientX - rect.left;
+                    const y = mouseEvent.clientY - rect.top;
+
+                    ctx.strokeStyle = 'rgba(255, 0, 255, 0.6)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(connectingFrom.x, connectingFrom.y);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Track mouse for preview line
+        canvas.addEventListener('mousemove', (e) => {
+            window.lastMouseEvent = e;
+        });
+
+        animate();
+    </script>
+</body>
+</html>
