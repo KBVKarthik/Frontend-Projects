@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time-Based Generative Wallpaper Engine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #0a0a0a;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .wallpaper-display {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .wallpaper-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff88;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .controls h2 {
+            color: #00ff88;
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-label {
+            color: #00ff88;
+            font-size: 12px;
+            display: block;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="range"] {
+            width: 150px;
+            cursor: pointer;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #00ffaa 0%, #00ff88 100%);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .time-display {
+            color: #00ff88;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .bottom-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 8px;
+            color: rgba(0, 255, 136, 0.7);
+            font-size: 11px;
+            max-width: 300px;
+            line-height: 1.6;
+        }
+
+        .frozen-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #ff00ff 0%, #ff0088 100%);
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            text-shadow: 0 0 10px rgba(255, 0, 136, 0.5);
+        }
+
+        .frozen-indicator.show {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                padding: 15px;
+                top: 10px;
+                left: 10px;
+                font-size: 12px;
+            }
+
+            .bottom-info {
+                bottom: 10px;
+                right: 10px;
+                font-size: 9px;
+                padding: 10px 15px;
+            }
+
+            input[type="range"] {
+                width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="wallpaper-display">
+            <canvas class="wallpaper-canvas" id="canvas"></canvas>
+            
+            <div class="controls">
+                <h2>⏰ Wallpaper Engine</h2>
+                
+                <div class="control-group">
+                    <label class="control-label">Complexity</label>
+                    <input type="range" id="complexity" min="3" max="12" value="6" step="1">
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Scale</label>
+                    <input type="range" id="scale" min="0.5" max="3" value="1" step="0.1">
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Speed</label>
+                    <input type="range" id="speed" min="0.1" max="2" value="1" step="0.1">
+                </div>
+
+                <button id="freezeBtn">Freeze Design</button>
+                <button id="downloadBtn">Download</button>
+
+                <div class="time-display" id="timeDisplay">00:00:00</div>
+            </div>
+
+            <div class="frozen-indicator" id="frozenIndicator">✓ FROZEN</div>
+
+            <div class="bottom-info">
+                💡 Every second generates a unique design based on time. Click "Freeze" to lock a design you love. New pattern refreshes every second automatically.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const complexitySlider = document.getElementById('complexity');
+        const scaleSlider = document.getElementById('scale');
+        const speedSlider = document.getElementById('speed');
+        const freezeBtn = document.getElementById('freezeBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const frozenIndicator = document.getElementById('frozenIndicator');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        let isFrozen = false;
+        let frozenSeed = null;
+        let frozenTime = null;
+
+        // Seeded random number generator
+        function seededRandom(seed) {
+            const x = Math.sin(seed) * 10000;
+            return x - Math.floor(x);
+        }
+
+        // Generative art functions
+        function generateWallpaper(time, complexity, scale, speed) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const seed = Math.floor(time * speed * 1000) % 10000;
+            const hours = Math.floor(time / 3600);
+            const minutes = Math.floor((time % 3600) / 60);
+            const seconds = Math.floor(time % 60);
+
+            // Base colors from time
+            const hue1 = (hours * 15 + minutes * 6) % 360;
+            const hue2 = (minutes * 6 + seconds * 6) % 360;
+            const hue3 = (seconds * 6 + hours * 15) % 360;
+
+            // Draw generative shapes
+            const shapeCount = Math.floor(complexity * 3);
+            for (let i = 0; i < shapeCount; i++) {
+                const angle = seededRandom(seed + i * 1.5) * Math.PI * 2;
+                const distance = seededRandom(seed + i * 2.5) * Math.max(canvas.width, canvas.height);
+                const x = canvas.width / 2 + Math.cos(angle) * distance;
+                const y = canvas.height / 2 + Math.sin(angle) * distance;
+
+                const size = seededRandom(seed + i * 3.5) * 300 * scale;
+                const hue = (hue1 + i * (360 / shapeCount)) % 360;
+                const saturation = 50 + seededRandom(seed + i * 4.5) * 50;
+                const lightness = 30 + seededRandom(seed + i * 5.5) * 40;
+
+                ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                ctx.globalAlpha = 0.3 + seededRandom(seed + i * 6.5) * 0.5;
+
+                // Draw different shapes
+                const shapeType = Math.floor(seededRandom(seed + i * 7.5) * 4);
+                if (shapeType === 0) {
+                    // Circle
+                    ctx.beginPath();
+                    ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (shapeType === 1) {
+                    // Square
+                    ctx.fillRect(x - size / 2, y - size / 2, size, size);
+                } else if (shapeType === 2) {
+                    // Triangle
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - size / 2);
+                    ctx.lineTo(x + size / 2, y + size / 2);
+                    ctx.lineTo(x - size / 2, y + size / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    // Star
+                    drawStar(ctx, x, y, 5, size / 2, size / 4);
+                    ctx.fill();
+                }
+            }
+
+            ctx.globalAlpha = 1;
+
+            // Add gradient overlay
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, `hsla(${hue1}, 80%, 50%, 0.1)`);
+            gradient.addColorStop(0.5, `hsla(${hue2}, 80%, 50%, 0.05)`);
+            gradient.addColorStop(1, `hsla(${hue3}, 80%, 50%, 0.1)`);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+            let rot = Math.PI / 2 * 3;
+            let step = Math.PI / spikes;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                ctx.lineTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
+                rot += step;
+                ctx.lineTo(cx + Math.cos(rot) * innerRadius, cy + Math.sin(rot) * innerRadius);
+                rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius);
+            ctx.closePath();
+        }
+
+        // Update time display
+        function updateTimeDisplay(time) {
+            const hours = Math.floor(time / 3600);
+            const minutes = Math.floor((time % 3600) / 60);
+            const seconds = Math.floor(time % 60);
+            timeDisplay.textContent = 
+                String(hours).padStart(2, '0') + ':' +
+                String(minutes).padStart(2, '0') + ':' +
+                String(seconds).padStart(2, '0');
+        }
+
+        // Freeze design
+        freezeBtn.addEventListener('click', () => {
+            isFrozen = !isFrozen;
+            if (isFrozen) {
+                frozenSeed = Date.now();
+                frozenTime = Math.floor(Date.now() / 1000) % 86400;
+                frozenIndicator.classList.add('show');
+                freezeBtn.textContent = 'Unfreeze Design';
+            } else {
+                frozenSeed = null;
+                frozenTime = null;
+                frozenIndicator.classList.remove('show');
+                freezeBtn.textContent = 'Freeze Design';
+            }
+        });
+
+        // Download canvas
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = `wallpaper-${Date.now()}.png`;
+            link.click();
+        });
+
+        // Animation loop
+        function animate() {
+            const currentTime = isFrozen ? frozenTime : (Math.floor(Date.now() / 1000) % 86400);
+            const complexity = parseInt(complexitySlider.value);
+            const scale = parseFloat(scaleSlider.value);
+            const speed = parseFloat(speedSlider.value);
+
+            generateWallpaper(currentTime, complexity, scale, speed);
+            updateTimeDisplay(currentTime);
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bioluminescent Organism Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 95vw;
+            height: 95vh;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+        }
+
+        h1 {
+            color: #00ff88;
+            text-align: center;
+            font-size: 24px;
+            text-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+            margin: 0;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            background: radial-gradient(ellipse at center, #0a0a1a 0%, #000 100%);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.2), inset 0 0 30px rgba(0, 0, 0, 0.8);
+            position: relative;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 15px;
+            background: rgba(0, 20, 40, 0.8);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            color: #00ff88;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="range"] {
+            width: 120px;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+        }
+
+        .info-text {
+            color: rgba(0, 255, 136, 0.7);
+            font-size: 11px;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .stat-display {
+            color: #00ff88;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 18px;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            input[type="range"] {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✨ Bioluminescent Organism Simulator</h1>
+
+        <div class="canvas-wrapper">
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="population">Population:</label>
+                <input type="range" id="population" min="10" max="200" value="50" step="10">
+            </div>
+
+            <div class="control-group">
+                <label for="speed">Speed:</label>
+                <input type="range" id="speed" min="0.5" max="3" value="1.5" step="0.1">
+            </div>
+
+            <div class="control-group">
+                <label for="attraction">Attraction:</label>
+                <input type="range" id="attraction" min="0.1" max="1" value="0.5" step="0.1">
+            </div>
+
+            <div class="control-group">
+                <label for="trailLength">Trail Length:</label>
+                <input type="range" id="trailLength" min="5" max="50" value="20" step="5">
+            </div>
+
+            <button id="resetBtn">Reset Population</button>
+
+            <div class="stat-display">
+                Organisms: <span id="orgCount">0</span>
+            </div>
+        </div>
+
+        <div class="info-text">
+            🦠 Move your mouse to attract creatures. They hunt, reproduce on collision, and emit glowing light trails. Slow speeds increase attraction and reproduction.
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const populationInput = document.getElementById('population');
+        const speedInput = document.getElementById('speed');
+        const attractionInput = document.getElementById('attraction');
+        const trailLengthInput = document.getElementById('trailLength');
+        const resetBtn = document.getElementById('resetBtn');
+        const orgCount = document.getElementById('orgCount');
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Organism class with physics
+        class Organism {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.ax = 0;
+                this.ay = 0;
+                this.radius = 4 + Math.random() * 2;
+                this.mass = this.radius;
+                this.hue = Math.random() * 120 + 120; // Green to cyan
+                this.trail = [];
+                this.age = 0;
+            }
+
+            update(mouseX, mouseY, speedMult, attraction) {
+                // Reset acceleration
+                this.ax = 0;
+                this.ay = 0;
+
+                // Attraction to mouse
+                const dx = mouseX - this.x;
+                const dy = mouseY - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > 0 && dist < 300) {
+                    const force = (1 - dist / 300) * attraction;
+                    this.ax += (dx / dist) * force;
+                    this.ay += (dy / dist) * force;
+                }
+
+                // Boundary repulsion
+                const boundaryDist = 40;
+                if (this.x < boundaryDist) {
+                    this.ax += 0.3;
+                }
+                if (this.x > canvas.width - boundaryDist) {
+                    this.ax -= 0.3;
+                }
+                if (this.y < boundaryDist) {
+                    this.ay += 0.3;
+                }
+                if (this.y > canvas.height - boundaryDist) {
+                    this.ay -= 0.3;
+                }
+
+                // Apply acceleration
+                this.vx += this.ax;
+                this.vy += this.ay;
+
+                // Friction
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+
+                // Cap velocity
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > 2 * speedMult) {
+                    const scale = (2 * speedMult) / speed;
+                    this.vx *= scale;
+                    this.vy *= scale;
+                }
+
+                // Update position
+                this.x += this.vx * speedMult;
+                this.y += this.vy * speedMult;
+
+                // Maintain trail
+                this.trail.push({ x: this.x, y: this.y });
+                const maxTrail = parseInt(trailLengthInput.value);
+                if (this.trail.length > maxTrail) {
+                    this.trail.shift();
+                }
+
+                this.age++;
+            }
+
+            draw(ctx) {
+                // Draw trail
+                if (this.trail.length > 1) {
+                    ctx.strokeStyle = `hsla(${this.hue}, 100%, 50%, 0.1)`;
+                    ctx.lineWidth = this.radius * 0.5;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let i = 1; i < this.trail.length; i++) {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    ctx.stroke();
+                }
+
+                // Draw glow effect
+                const glowRadius = this.radius * 3;
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowRadius);
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, 60%, 0.4)`);
+                gradient.addColorStop(0.5, `hsla(${this.hue}, 100%, 50%, 0.2)`);
+                gradient.addColorStop(1, `hsla(${this.hue}, 100%, 40%, 0)`);
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw organism body
+                const bodyGradient = ctx.createRadialGradient(this.x - 1, this.y - 1, 0, this.x, this.y, this.radius);
+                bodyGradient.addColorStop(0, `hsl(${this.hue}, 100%, 70%)`);
+                bodyGradient.addColorStop(1, `hsl(${this.hue}, 100%, 40%)`);
+
+                ctx.fillStyle = bodyGradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Bright highlight
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 90%, 0.8)`;
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            collidesWith(other) {
+                const dx = other.x - this.x;
+                const dy = other.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                return dist < this.radius + other.radius;
+            }
+        }
+
+        let organisms = [];
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+
+        function initPopulation() {
+            organisms = [];
+            const count = parseInt(populationInput.value);
+            for (let i = 0; i < count; i++) {
+                organisms.push(new Organism(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height
+                ));
+            }
+        }
+
+        // Mouse tracking
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        resetBtn.addEventListener('click', initPopulation);
+
+        // Animation loop
+        function animate() {
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Add subtle background glow
+            const bgGradient = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height));
+            bgGradient.addColorStop(0, 'rgba(0, 50, 80, 0.1)');
+            bgGradient.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const speedMult = parseFloat(speedInput.value);
+            const attraction = parseFloat(attractionInput.value);
+
+            // Update and draw organisms
+            for (let i = organisms.length - 1; i >= 0; i--) {
+                organisms[i].update(mouseX, mouseY, speedMult, attraction);
+                organisms[i].draw(ctx);
+
+                // Check collisions with other organisms
+                for (let j = i - 1; j >= 0; j--) {
+                    if (organisms[i].collidesWith(organisms[j])) {
+                        const speed = Math.sqrt(organisms[i].vx * organisms[i].vx + organisms[i].vy * organisms[i].vy);
+
+                        if (speed < 0.5) {
+                            // Slow collision = reproduction
+                            const offspring = new Organism(
+                                (organisms[i].x + organisms[j].x) / 2,
+                                (organisms[i].y + organisms[j].y) / 2
+                            );
+                            organisms.push(offspring);
+                        } else {
+                            // Fast collision = death of one
+                            organisms.splice(j, 1);
+                            i--;
+                        }
+                    }
+                }
+            }
+
+            // Limit population growth
+            while (organisms.length > 250) {
+                organisms.shift();
+            }
+
+            orgCount.textContent = organisms.length;
+
+            requestAnimationFrame(animate);
+        }
+
+        initPopulation();
+        animate();
+    </script>
+</body>
+</html>

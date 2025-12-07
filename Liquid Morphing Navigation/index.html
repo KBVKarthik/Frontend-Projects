@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Liquid Morphing Navigation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            padding: 40px;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 60px;
+            font-size: 32px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        nav {
+            display: flex;
+            gap: 0;
+            position: relative;
+            z-index: 10;
+        }
+
+        .nav-item {
+            flex: 1;
+            padding: 14px 16px;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            z-index: 2;
+            transition: color 0.3s ease;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            display: block;
+            border-radius: 15px;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-item:hover {
+            color: white;
+        }
+
+        .nav-item.active {
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Liquid blob background */
+        .liquid-blob {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            border-radius: 30px;
+            overflow: hidden;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            filter: drop-shadow(0 4px 15px rgba(0, 0, 0, 0.2));
+        }
+
+        path {
+            fill: rgba(255, 255, 255, 0.25);
+            filter: blur(1px);
+        }
+
+        /* Content area */
+        .content {
+            margin-top: 60px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            text-align: center;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .content h2 {
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .content p {
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        .info-text {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            text-align: center;
+            margin-top: 40px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 24px;
+                margin-bottom: 40px;
+            }
+
+            .nav-item {
+                font-size: 12px;
+                padding: 10px 8px;
+            }
+
+            .content {
+                padding: 25px;
+                min-height: 250px;
+            }
+
+            .content h2 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💧 Liquid Morphing Navigation</h1>
+
+        <div class="nav-container">
+            <div class="liquid-blob">
+                <svg id="liquidSVG" viewBox="0 0 600 60" preserveAspectRatio="none">
+                    <defs>
+                        <filter id="blur">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
+                        </filter>
+                    </defs>
+                    <path id="liquidPath" d="" filter="url(#blur)"></path>
+                </svg>
+            </div>
+
+            <nav>
+                <a href="#" class="nav-item active" data-content="0">Home</a>
+                <a href="#" class="nav-item" data-content="1">About</a>
+                <a href="#" class="nav-item" data-content="2">Services</a>
+                <a href="#" class="nav-item" data-content="3">Portfolio</a>
+                <a href="#" class="nav-item" data-content="4">Contact</a>
+            </nav>
+        </div>
+
+        <div class="content" id="content">
+            <h2>Welcome Home</h2>
+            <p>Experience the magic of liquid morphing navigation. Hover over the items to see the smooth blob animation flowing between them.</p>
+        </div>
+
+        <div class="info-text">
+            ✨ The liquid blob smoothly morphs between nav items as you hover. Click to change content!
+        </div>
+    </div>
+
+    <script>
+        const navItems = document.querySelectorAll('.nav-item');
+        const liquidPath = document.getElementById('liquidPath');
+        const contentDiv = document.getElementById('content');
+        const navContainer = document.querySelector('.nav-container');
+
+        const contentData = [
+            { title: 'Welcome Home', text: 'Experience the magic of liquid morphing navigation. Hover over the items to see the smooth blob animation flowing between them.' },
+            { title: 'About Us', text: 'This liquid morphing effect uses SVG path animations to create smooth, organic transitions between navigation items. Pure CSS and JavaScript magic!' },
+            { title: 'Our Services', text: 'We specialize in creating interactive, modern UI experiences with cutting-edge web technologies. Each animation is crafted with precision.' },
+            { title: 'Portfolio', text: 'Explore our collection of innovative projects that push the boundaries of web design and user experience.' },
+            { title: 'Get In Touch', text: 'Ready to create something amazing? Reach out to us and let\'s build the future together.' }
+        ];
+
+        let currentIndex = 0;
+        let animationFrame = null;
+        let targetX = 0;
+
+        // Generate liquid blob path
+        function generateLiquidPath(centerX, width) {
+            const padding = 10;
+            const blobHeight = 55;
+            const controlHeight = 12;
+
+            // Create wavy top and bottom
+            const points = [];
+            const segments = 40;
+
+            // Top curve
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const x = centerX - width / 2 + t * width;
+                const wave = Math.sin((t - 0.5) * Math.PI) * controlHeight;
+                const y = padding + controlHeight - wave;
+                points.push({ x, y });
+            }
+
+            // Right side curve
+            for (let i = 1; i <= 8; i++) {
+                const t = i / 8;
+                const x = centerX + width / 2 + Math.sin(t * Math.PI / 2) * 8;
+                const y = padding + controlHeight + t * (blobHeight - controlHeight);
+                points.push({ x, y });
+            }
+
+            // Bottom curve
+            for (let i = segments; i >= 0; i--) {
+                const t = i / segments;
+                const x = centerX - width / 2 + t * width;
+                const wave = Math.sin((t - 0.5) * Math.PI) * controlHeight;
+                const y = padding + blobHeight - controlHeight + wave;
+                points.push({ x, y });
+            }
+
+            // Left side curve
+            for (let i = 8; i >= 1; i--) {
+                const t = i / 8;
+                const x = centerX - width / 2 - Math.sin(t * Math.PI / 2) * 8;
+                const y = padding + blobHeight - t * (blobHeight - controlHeight);
+                points.push({ x, y });
+            }
+
+            // Create smooth path using quadratic curves
+            let pathData = `M ${points[0].x} ${points[0].y}`;
+            for (let i = 1; i < points.length; i++) {
+                const prev = points[i - 1];
+                const curr = points[i];
+                const next = points[(i + 1) % points.length];
+
+                const cpx = (curr.x + next.x) / 2;
+                const cpy = (curr.y + next.y) / 2;
+
+                pathData += ` Q ${curr.x} ${curr.y} ${cpx} ${cpy}`;
+            }
+            pathData += ' Z';
+
+            return pathData;
+        }
+
+        // Update liquid animation
+        function updateLiquid() {
+            targetX += (currentIndex * 120 - targetX) * 0.15;
+
+            const centerX = 60 + targetX;
+            const itemWidth = 100;
+            const newPath = generateLiquidPath(centerX, itemWidth);
+            liquidPath.setAttribute('d', newPath);
+
+            animationFrame = requestAnimationFrame(updateLiquid);
+        }
+
+        // Handle nav item click
+        navItems.forEach((item, index) => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+
+                // Update active state
+                navItems.forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+
+                // Update content
+                currentIndex = index;
+                const data = contentData[index];
+                contentDiv.innerHTML = `<h2>${data.title}</h2><p>${data.text}</p>`;
+
+                // Update liquid position
+                updateLiquid();
+            });
+
+            // Hover effect for smooth blob following
+            item.addEventListener('mouseenter', () => {
+                const navIndex = Array.from(navItems).indexOf(item);
+                targetX = navIndex * 120;
+            });
+        });
+
+        // Initialize
+        updateLiquid();
+
+        // Adjust on resize
+        window.addEventListener('resize', () => {
+            const newPath = generateLiquidPath(60 + currentIndex * 120, 100);
+            liquidPath.setAttribute('d', newPath);
+        });
+    </script>
+</body>
+</html>
